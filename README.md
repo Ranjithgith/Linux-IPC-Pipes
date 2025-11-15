@@ -27,87 +27,191 @@ Testing the C Program for the desired output.
 ## C Program that illustrate communication between two process using unnamed pipes using Linux API system calls
 
 ```
-#include<stdlib.h>
-#include<sys/types.h> 
-#include<sys/stat.h> 
-#include<string.h> 
-#include<fcntl.h> 
-#include<unistd.h>
-#include<sys/wait.h>
-void server(int,int); 
-void client(int,int); 
-int main() 
-{ 
-int p1[2],p2[2],pid, *waits; 
-pipe(p1); 
-pipe(p2); 
-pid=fork(); 
-if(pid==0) { 
-close(p1[1]); 
-close(p2[0]); 
-server(p1[0],p2[1]); return 0;
- } 
-close(p1[0]); 
-close(p2[1]); 
-client(p1[1],p2[0]); 
-wait(waits); 
-return 0; 
-} 
-void server(int rfd,int wfd) 
-{ 
-int i,j,n; 
-char fname[2000]; 
-char buff[2000];
-n=read(rfd,fname,2000);
-fname[n]='\0';
-int fd=open(fname,O_RDONLY);
-sleep(10); 
-if(fd<0) 
-write(wfd,"can't open",9); 
-else 
-n=read(fd,buff,2000); 
-write(wfd,buff,n); 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <string.h>
+
+#define FIFO_FILE "/tmp/my_fifo"
+#define FILE_NAME "hello.txt"
+
+void server();
+void client();
+
+int main() {
+    pid_t pid;
+
+    // Create FIFO if it doesn't exist
+    mkfifo(FIFO_FILE, 0666);
+
+    pid = fork();  // Create a child process
+
+    if (pid > 0) {
+        // Parent process acts as the server
+        sleep(1);  // Give client time to set up
+        server();
+    } else if (pid == 0) {
+        // Child process acts as the client
+        client();
+    } else {
+        perror("Fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    return 0;
 }
-void client(int wfd,int rfd) {
-int i,j,n; char fname[2000];
-char buff[2000];
-printf("ENTER THE FILE NAME :");
-scanf("%s",fname);
-sleep(10);
-write(wfd,fname,2000);
-n=read(rfd,buff,2000);
-buff[n]='\0';
-printf("THE RESULTS OF CLIENTS ARE ...... \n"); write(1,buff,n);
+
+// Server: Reads from hello.txt and writes to FIFO
+void server() {
+    int fifo_fd, file_fd;
+    char buffer[1024];
+    ssize_t bytes_read;
+
+    // Open the file for reading
+    file_fd = open(FILE_NAME, O_RDONLY);
+    if (file_fd == -1) {
+        perror("Error opening hello.txt");
+        exit(EXIT_FAILURE);
+    }
+
+    // Open FIFO for writing
+    fifo_fd = open(FIFO_FILE, O_WRONLY);
+    if (fifo_fd == -1) {
+        perror("Error opening FIFO");
+        exit(EXIT_FAILURE);
+    }
+
+    // Read from file and write to FIFO
+    while ((bytes_read = read(file_fd, buffer, sizeof(buffer))) > 0) {
+        write(fifo_fd, buffer, bytes_read);
+    }
+
+    close(file_fd);
+    close(fifo_fd);
 }
+
+// Client: Reads from FIFO and prints content
+void client() {
+    int fifo_fd;
+    char buffer[1024];
+    ssize_t bytes_read;
+
+    // Open FIFO for reading
+    fifo_fd = open(FIFO_FILE, O_RDONLY);
+    if (fifo_fd == -1) {
+        perror("Error opening FIFO");
+        exit(EXIT_FAILURE);
+    }
+
+    // Read data from FIFO and display
+    while ((bytes_read = read(fifo_fd, buffer, sizeof(buffer))) > 0) {
+        write(STDOUT_FILENO, buffer, bytes_read);
+    }
+
+    close(fifo_fd);
+}
+
 ```
-
-
 
 ## OUTPUT
 
-<img width="1182" height="174" alt="Screenshot 2025-10-27 144628" src="https://github.com/user-attachments/assets/88c9c6ba-b9a1-46df-bd3e-3de864cd66d0" />
+![WhatsApp Image 2025-11-15 at 16 45 31_8fd690d2](https://github.com/user-attachments/assets/a3a62939-0c7f-417b-a459-18622c50b3a0)
 
 
 ## C Program that illustrate communication between two process using named pipes using Linux API system calls
 
 ```
-#include <unistd.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-int main(){
-int res = mkfifo("/tmp/my_fifo", 0777);
-if (res == 0) printf("FIFO created\n");
-exit(EXIT_SUCCESS);
+#include <string.h>
+
+#define FIFO_FILE "/tmp/my_fifo"
+#define FILE_NAME "hello.txt"
+
+void server();
+void client();
+
+int main() {
+    pid_t pid;
+
+    // Create FIFO if it doesn't exist
+    mkfifo(FIFO_FILE, 0666);
+
+    pid = fork();  // Create a child process
+
+    if (pid > 0) {
+        // Parent process acts as the server
+        sleep(1);  // Give client time to start
+        server();
+    } else if (pid == 0) {
+        // Child process acts as the client
+        client();
+    } else {
+        perror("Fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    return 0;
 }
+
+// Server process: Reads from hello.txt and writes to FIFO
+void server() {
+    int fifo_fd, file_fd;
+    char buffer[1024];
+    ssize_t bytes_read;
+
+    file_fd = open(FILE_NAME, O_RDONLY);
+    if (file_fd == -1) {
+        perror("Error opening hello.txt");
+        exit(EXIT_FAILURE);
+    }
+
+    fifo_fd = open(FIFO_FILE, O_WRONLY);
+    if (fifo_fd == -1) {
+        perror("Error opening FIFO");
+        exit(EXIT_FAILURE);
+    }
+
+    while ((bytes_read = read(file_fd, buffer, sizeof(buffer))) > 0) {
+        write(fifo_fd, buffer, bytes_read);
+    }
+
+    close(file_fd);
+    close(fifo_fd);
+}
+
+// Client process: Reads from FIFO and displays content
+void client() {
+    int fifo_fd;
+    char buffer[1024];
+    ssize_t bytes_read;
+
+    fifo_fd = open(FIFO_FILE, O_RDONLY);
+    if (fifo_fd == -1) {
+        perror("Error opening FIFO");
+        exit(EXIT_FAILURE);
+    }
+
+    while ((bytes_read = read(fifo_fd, buffer, sizeof(buffer))) > 0) {
+        write(STDOUT_FILENO, buffer, bytes_read);
+    }
+
+    close(fifo_fd);
+}
+
 ```
-
-
 
 ## OUTPUT
 
-<img width="1186" height="123" alt="Screenshot 2025-10-27 144651" src="https://github.com/user-attachments/assets/8d9f0680-131c-47cc-91a1-8c1dfde465b4" />
+![WhatsApp Image 2025-11-15 at 16 51 52_ae1c4439](https://github.com/user-attachments/assets/8b0b0782-0912-452c-8b2c-cad87fb5e376)
 
-# RESULT:
+
+## Result
 The program is executed successfully.
